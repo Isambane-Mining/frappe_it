@@ -9,6 +9,7 @@
   {
    "child": 0,
    "collapsible": 1,
+   "icon": "home",
    "indent": 0,
    "keep_closed": 0,
    "label": "Home",
@@ -16,9 +17,33 @@
    "link_type": "Workspace",
    "show_arrow": 0,
    "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "assign",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Asset Request",
+   "link_to": "Asset Request",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "remove",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Asset Return",
+   "link_to": "Asset Return",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-02-02 18:12:17.718760",
+ "modified": "2026-07-08 10:48:12.066959",
  "modified_by": "Administrator",
  "module": "Frappe IT",
  "name": "IT",
