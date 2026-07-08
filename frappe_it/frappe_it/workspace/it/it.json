@@ -1,4 +1,5 @@
 {
+ "app": "frappe_it",
  "charts": [],
  "content": "[{\"id\":\"WXOsjMQWuk\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">IT</span>\",\"col\":12}},{\"id\":\"RtNNYmhyfJ\",\"type\":\"card\",\"data\":{\"card_name\":\"Cellphones\",\"col\":4}},{\"id\":\"DfjQLJjZra\",\"type\":\"card\",\"data\":{\"card_name\":\"CCTV\",\"col\":4}},{\"id\":\"RHuIwKUvfi\",\"type\":\"card\",\"data\":{\"card_name\":\"Asset Maintenance\",\"col\":4}}]",
  "creation": "2024-10-11 11:13:49.828811",
@@ -8,7 +9,7 @@
  "for_user": "",
  "hide_custom": 0,
  "icon": "support",
- "idx": 7,
+ "idx": 8,
  "indicator_color": "",
  "is_hidden": 0,
  "label": "IT",
@@ -211,7 +212,7 @@
    "type": "Link"
   }
  ],
- "modified": "2025-07-31 19:16:02.327219",
+ "modified": "2026-07-08 10:56:03.760039",
  "modified_by": "Administrator",
  "module": "Frappe IT",
  "name": "IT",
@@ -220,8 +221,19 @@
  "parent_page": "",
  "public": 1,
  "quick_lists": [],
- "roles": [],
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "IT Manager"
+  },
+  {
+   "role": "IT User"
+  }
+ ],
  "sequence_id": 43.0,
  "shortcuts": [],
- "title": "IT"
+ "title": "IT",
+ "type": "Workspace"
 }
