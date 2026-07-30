@@ -32,7 +32,8 @@ fixtures = [
 		"NVRs",
 		"Vehicle Mounted Radio",
 		"Cellular Telephone",
-		"Laptop Computer"
+		"Laptop Computer",
+        "Computer Monitor"
 	]]]},
 	{"dt": "Item Group", "filters": [["name", "in", [
 		"Cellphone Simcards",

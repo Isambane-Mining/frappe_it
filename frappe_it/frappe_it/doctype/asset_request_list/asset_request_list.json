@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_bulk_edit": 1,
  "allow_rename": 1,
  "creation": "2025-07-16 17:33:31.116011",
  "doctype": "DocType",
@@ -17,7 +18,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Asset Type",
-   "link_filters": "[[\"Asset Category\",\"name\",\"in\",[\"Cellphone Simcards\",\"Handheld Radio\",\"IP Cameras\",\"NVRs\",\"Vehicle Mounted Radio\",\"Cellular Telephone\",\"Laptop Computer\"]]]",
+   "link_filters": "[[\"Asset Category\",\"name\",\"in\",[\"Cellphone Simcards\",\"Handheld Radio\",\"IP Cameras\",\"NVRs\",\"Vehicle Mounted Radio\",\"Cellular Telephone\",\"Laptop Computer\",\"Computer Monitor\"]]]",
    "options": "Asset Category",
    "reqd": 1
   },
@@ -48,7 +49,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-07-21 08:16:25.840735",
+ "modified": "2026-07-30 08:02:58.962446",
  "modified_by": "Administrator",
  "module": "Frappe IT",
  "name": "Asset Request List",

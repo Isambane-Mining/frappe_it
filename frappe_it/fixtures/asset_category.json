@@ -159,5 +159,24 @@
   "modified": "2025-02-19 11:20:34.037516",
   "name": "Cellular Telephone",
   "non_depreciable_category": 0
+ },
+ {
+  "accounts": [
+   {
+    "accumulated_depreciation_account": null,
+    "capital_work_in_progress_account": null,
+    "company_name": "Isambane Mining (Pty) Ltd",
+    "depreciation_expense_account": null,
+    "fixed_asset_account": "Electronic Equipments - ISA"
+   }
+  ],
+  "asset_category_name": "Computer Monitor",
+  "docstatus": 0,
+  "doctype": "Asset Category",
+  "enable_cwip_accounting": 0,
+  "finance_books": [],
+  "modified": "2025-02-14 08:45:21.563101",
+  "name": "Computer Monitor",
+  "non_depreciable_category": 0
  }
 ]
