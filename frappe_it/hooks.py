@@ -5,12 +5,12 @@ app_description = "IT Management using Frappe and ERPNext"
 app_email = "buff0k@gmail.com"
 app_license = "mit"
 app_home = "/desk/it"
-app_logo_url = "/assets/frappe_it/images/is-logo.svg"
+app_logo_url = "/assets/frappe_it/images/is-logo.png"
 required_apps = ["frappe/erpnext", "frappe/hrms"]
 add_to_apps_screen = [
 	{
 		"name": app_name,
-		"logo": "/assets/frappe_it/images/is-logo.svg",
+		"logo": "/assets/frappe_it/images/is-logo.png",
 		"title": app_title,
 		"route": app_home,
 		"has_permission": "frappe_it.frappe_it.utils.check_app_permission",
