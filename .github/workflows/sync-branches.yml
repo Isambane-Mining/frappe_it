@@ -1,0 +1,51 @@
+name: Sync sub-branches with main
+on:
+  push:
+    branches:
+      - main
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: [ruan, eben]
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Attempt fast merge of main into ${{ matrix.branch }}
+        id: merge
+        run: |
+          git checkout ${{ matrix.branch }}
+          git fetch origin main
+          if git merge origin/main --no-edit; then
+            echo "conflict=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
+            git merge --abort
+          fi
+      - name: Push merged branch
+        if: steps.merge.outputs.conflict == 'false'
+        run: git push --force-with-lease origin ${{ matrix.branch }}
+      - name: Open PR when merge conflicts
+        if: steps.merge.outputs.conflict == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: sync-main-into-${{ matrix.branch }}
+          base: ${{ matrix.branch }}
+          title: "Sync main into ${{ matrix.branch }} (conflicts need manual resolution)"
+          body: |
+            Automatic merge of `main` into `${{ matrix.branch }}` hit a conflict
+            and needs manual resolution.
+          commit-message: "Merge main into ${{ matrix.branch }}"
