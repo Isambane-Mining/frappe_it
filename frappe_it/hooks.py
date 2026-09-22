@@ -1,5 +1,5 @@
 app_name = "frappe_it"
-app_title = "Frappe IT"
+app_title = "IT"
 app_publisher = "buff0k"
 app_description = "IT Management using Frappe and ERPNext"
 app_email = "buff0k@gmail.com"
