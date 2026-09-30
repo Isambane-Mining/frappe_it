@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_bulk_edit": 1,
  "allow_rename": 1,
  "autoname": "format:{allocate_to} - {DD}-{MM}-{YYYY}",
  "creation": "2025-07-16 12:28:12.123639",
@@ -64,6 +65,7 @@
    "fieldtype": "Link",
    "in_standard_filter": 1,
    "label": "Requested By:",
+   "link_filters": "[[\"Employee\",\"status\",\"=\",\"Active\"]]",
    "options": "Employee",
    "reqd": 1
   },
@@ -182,11 +184,11 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-08-01 09:21:58.333533",
+ "modified": "2026-09-30 12:52:46.902099",
  "modified_by": "Administrator",
  "module": "Frappe IT",
  "name": "Asset Request",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {

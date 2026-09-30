@@ -108,59 +108,52 @@ frappe.ui.form.on('Asset Request', {
     }
 });
 
+// Asset types with a structured specification DocType. Every other asset type
+// is specified free-form in manual_spec. Keep in sync with asset_request.py.
+frappe.provide('frappe_it.asset_request');
+frappe_it.asset_request.SPEC_DOCTYPE_BY_ASSET_TYPE = {
+    'Cellular Telephone': 'Cellphone Plan by Designation',
+    'Cellphone Simcards': 'Cellphone Plan by Designation',
+    'Laptop Computer': 'Laptop Specification',
+};
+
 frappe.ui.form.on('Asset Request List', {
     asset_type: async function (frm, cdt, cdn) {
-        let row = locals[cdt][cdn];
-        const designation = frm.doc.employee_asset_designation;
+        const row = locals[cdt][cdn];
+        const spec_doctype = frappe_it.asset_request.SPEC_DOCTYPE_BY_ASSET_TYPE[row.asset_type] || null;
 
-        // Set doctype_link based on asset_type
-        if (['Cellular Telephone', 'Cellphone Simcards'].includes(row.asset_type)) {
-            row.doctype_link = "Cellphone Plan by Designation";
-        } else if (row.asset_type === "Laptop Computer") {
-            row.doctype_link = "Laptop Specification";
-        } else {
-            row.doctype_link = null;
-            frm.refresh_field("asset_request_list");
-            return;
-        }
-
-        frappe.model.set_value(cdt, cdn, "doctype_link", row.doctype_link);
-
-        // If designation not set in parent, exit early
-        if (!designation) {
-            frm.refresh_field("asset_request_list");
-            return;
-        }
-
-        // Fetch documents of the target type
-        let results = await frappe.db.get_list(row.doctype_link, {
-            fields: ['name'],
-            limit: 10
+        // Reset whatever was captured for the previously selected asset type;
+        // doctype_link drives which spec fields are shown (depends_on).
+        await frappe.model.set_value(cdt, cdn, {
+            doctype_link: spec_doctype,
+            asset_spec: null,
+            asset_spec_details: null,
+            manual_spec: null,
         });
 
-        for (let doc of results) {
-            const full_doc = await frappe.db.get_doc(row.doctype_link, doc.name);
+        const designation = frm.doc.employee_asset_designation;
+        if (!spec_doctype || !designation) return;
 
-            // Check if the designation matches
-            if (
-                full_doc.designations &&
-                full_doc.designations.some(d => d.designation === designation)
-            ) {
-                await frappe.model.set_value(cdt, cdn, "asset_spec", full_doc.name);
+        // Preselect the spec assigned to the allocatee's designation
+        const matches = await frappe.db.get_list(spec_doctype, {
+            filters: [['Cellphone Plan Designation List', 'designation', '=', designation]],
+            fields: ['name'],
+            limit: 1,
+        });
 
-                // Manually trigger asset_spec logic to populate asset_spec_details
-                frappe.ui.form.on("Asset Request List").asset_spec(frm, cdt, cdn);
-                break;
-            }
+        // Setting asset_spec fires the asset_spec handler, which fills asset_spec_details
+        if (matches.length) {
+            await frappe.model.set_value(cdt, cdn, 'asset_spec', matches[0].name);
         }
-
-        frm.refresh_field("asset_request_list");
     },
 
     asset_spec: function (frm, cdt, cdn) {
         let row = locals[cdt][cdn];
 
-        if (!row.doctype_link || !row.asset_spec) return;
+        if (!row.doctype_link || !row.asset_spec) {
+            frappe.model.set_value(cdt, cdn, "asset_spec_details", null);
+            return;
+        }
 
         frappe.db.get_doc(row.doctype_link, row.asset_spec).then(spec => {
             if (row.doctype_link === "Laptop Specification") {
