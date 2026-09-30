@@ -9,6 +9,25 @@
     "fixed_asset_account": "Softwares - ISA"
    }
   ],
+  "asset_category_name": "Software Licence",
+  "docstatus": 0,
+  "doctype": "Asset Category",
+  "enable_cwip_accounting": 0,
+  "finance_books": [],
+  "modified": "2026-09-30 12:34:40.252761",
+  "name": "Software Licence",
+  "non_depreciable_category": 1
+ },
+ {
+  "accounts": [
+   {
+    "accumulated_depreciation_account": null,
+    "capital_work_in_progress_account": null,
+    "company_name": "Isambane Mining (Pty) Ltd",
+    "depreciation_expense_account": null,
+    "fixed_asset_account": "Softwares - ISA"
+   }
+  ],
   "asset_category_name": "IP Cameras",
   "docstatus": 0,
   "doctype": "Asset Category",
