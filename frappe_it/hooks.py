@@ -25,23 +25,19 @@ fixtures = [
 		"IT Manager",
 		"IT User"
 	]]]},
-	{"dt": "Item Group", "filters": [["name", "in", [
-		"Cellphone Simcards",
-		"Handheld Radio",
-		"IP Cameras",
-		"NVRs",
-		"Vehicle Mounted Radio",
-		"Cellular Telephone",
-		"Laptop Computer"
-	]]]}
 ]
-# Asset Categories are not a fixture: they need company-specific accounts.
-# They are created against the site's default company by
-# frappe_it.setup.asset_categories instead.
-after_install = "frappe_it.setup.asset_categories.ensure_asset_categories"
+# Asset Categories and Item Groups are not fixtures: Asset Categories need
+# company-specific accounts and Item Groups need the root Item Group, which
+# only exists after ERPNext's setup wizard. Both are created by frappe_it.setup
+# once the site is ready, retried on every migrate until then.
+after_install = [
+	"frappe_it.setup.item_groups.ensure_item_groups",
+	"frappe_it.setup.asset_categories.ensure_asset_categories",
+]
 after_migrate = [
 	"frappe_it.setup.add_employee_doclinks.ensure_employee_links",
 	"frappe_it.setup.add_asset_doclinks.ensure_asset_links",
+	"frappe_it.setup.item_groups.ensure_item_groups",
 	"frappe_it.setup.asset_categories.ensure_asset_categories",
 ]
 doc_events = {
