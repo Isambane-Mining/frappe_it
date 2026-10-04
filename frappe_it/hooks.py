@@ -25,17 +25,6 @@ fixtures = [
 		"IT Manager",
 		"IT User"
 	]]]},
-	{"dt": "Asset Category", "filters": [["name", "in", [
-		"Cellphone Simcards",
-		"Handheld Radio",
-		"IP Cameras",
-		"NVRs",
-		"Vehicle Mounted Radio",
-		"Cellular Telephone",
-		"Laptop Computer",
-        "Computer Monitor",
-        "Software Licence"
-	]]]},
 	{"dt": "Item Group", "filters": [["name", "in", [
 		"Cellphone Simcards",
 		"Handheld Radio",
@@ -46,9 +35,14 @@ fixtures = [
 		"Laptop Computer"
 	]]]}
 ]
+# Asset Categories are not a fixture: they need company-specific accounts.
+# They are created against the site's default company by
+# frappe_it.setup.asset_categories instead.
+after_install = "frappe_it.setup.asset_categories.ensure_asset_categories"
 after_migrate = [
 	"frappe_it.setup.add_employee_doclinks.ensure_employee_links",
-	"frappe_it.setup.add_asset_doclinks.ensure_asset_links"
+	"frappe_it.setup.add_asset_doclinks.ensure_asset_links",
+	"frappe_it.setup.asset_categories.ensure_asset_categories",
 ]
 doc_events = {
 	"Asset Request": {
