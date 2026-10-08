@@ -134,7 +134,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-02 14:05:00.072688",
+ "modified": "2026-10-08 14:42:23.742649",
  "modified_by": "Administrator",
  "module": "Frappe IT",
  "name": "NVR Details",
@@ -157,6 +157,7 @@
    "create": 1,
    "email": 1,
    "export": 1,
+   "import": 1,
    "print": 1,
    "read": 1,
    "report": 1,
@@ -164,6 +165,9 @@
    "select": 1,
    "share": 1,
    "write": 1
+  },
+  {
+   "role": "IT User"
   }
  ],
  "row_format": "Dynamic",
