@@ -1,0 +1,59 @@
+{
+ "app": "frappe_it",
+ "doctype": "Sidebar",
+ "header_icon": "support",
+ "items": [
+  {
+   "child": 0,
+   "collapsible": 1,
+   "doctype": "Sidebar Item",
+   "icon": "home",
+   "idx": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Home",
+   "link_to": "IT",
+   "link_type": "Workspace",
+   "parentfield": "items",
+   "parenttype": "Sidebar",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "doctype": "Sidebar Item",
+   "icon": "assign",
+   "idx": 2,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Asset Request",
+   "link_to": "Asset Request",
+   "link_type": "DocType",
+   "parentfield": "items",
+   "parenttype": "Sidebar",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "doctype": "Sidebar Item",
+   "icon": "remove",
+   "idx": 3,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Asset Return",
+   "link_to": "Asset Return",
+   "link_type": "DocType",
+   "parentfield": "items",
+   "parenttype": "Sidebar",
+   "show_arrow": 0,
+   "type": "Link"
+  }
+ ],
+ "module": "Frappe IT",
+ "name": "IT",
+ "standard": 1,
+ "title": "IT"
+}
