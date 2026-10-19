@@ -2,58 +2,71 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe.model.document import Document
 from frappe import _
+from frappe.model.document import Document
+from frappe.utils import get_link_to_form
+
+from frappe_it.controllers.asset_custody import release_allocation, sync_allocation
 
 
 class AssetAllocation(Document):
-	pass
+	def validate(self):
+		self.validate_assets()
 
-@frappe.whitelist()
-def get_employee_or_asset_details(doctype, docname):
-    if not doctype or not docname:
-        frappe.throw(_("Invalid parameters provided."))
+	def validate_assets(self):
+		seen = set()
+		for row in self.list_of_allocated_assets:
+			if not row.asset:
+				continue
+			if row.asset in seen:
+				frappe.throw(_("Row #{0}: Asset {1} is listed more than once.").format(row.idx, row.asset))
+			if self.employee_or_asset == "Asset" and row.asset == self.allocated_to:
+				frappe.throw(_("Row #{0}: An Asset can't be allocated to itself.").format(row.idx))
+			seen.add(row.asset)
 
-    try:
-        if doctype == "Employee":
-            # Fetch linked Branch and Employee Name
-            doc = frappe.get_doc("Employee", docname)
-            return {
-                "site": doc.branch if doc.branch else _("Branch not found"),
-                "employee_asset_name": doc.employee_name if doc.employee_name else _("Name not found"),
-            }
-        elif doctype == "Asset":
-            # Fetch linked Location and Item Name
-            doc = frappe.get_doc("Asset", docname)
-            return {
-                "site": doc.location if doc.location else _("Location not found"),
-                "employee_asset_name": doc.item_name if doc.item_name else _("Name not found"),
-            }
-        elif doctype == "Location":
-            # Fetch linked Location and Item Name
-            doc = frappe.get_doc("Location", docname)
-            return {
-                "site": doc.name if doc.name else _("Location not found"),
-                "employee_asset_name": doc.name if doc.name else _("Location not found"),
-            }
-        else:
-            frappe.throw(_("Invalid Doctype: {0}").format(doctype))
-    except Exception as e:
-        frappe.log_error(frappe.get_traceback(), _("Error in get_employee_or_asset_details"))
-        frappe.throw(_("An error occurred while fetching the document data: {0}").format(str(e)))
+		# Only newly added rows are checked against other allocations, so a
+		# legacy clash doesn't block unrelated edits to either document.
+		before = self.get_doc_before_save()
+		previous = {row.asset for row in before.list_of_allocated_assets} if before else set()
+		added = seen - previous
+		if not added:
+			return
+
+		clashes = frappe.get_all(
+			"Asset Allocation Table",
+			filters={
+				"asset": ["in", list(added)],
+				"parenttype": "Asset Allocation",
+				"parent": ["!=", self.name],
+			},
+			fields=["asset", "parent"],
+		)
+		if clashes:
+			frappe.throw(
+				"<br>".join(
+					_("Asset {0} is already allocated in {1}.").format(
+						c.asset, get_link_to_form("Asset Allocation", c.parent)
+					)
+					for c in clashes
+				),
+				title=_("Asset Already Allocated"),
+			)
+
+	def on_update(self):
+		sync_allocation(self)
+
+	def on_trash(self):
+		release_allocation(self)
+
 
 @frappe.whitelist()
 def check_asset_allocation(asset, docname=None):
-    """Check if an asset is already allocated in another 'Asset Allocation' document."""
-    if not frappe.has_permission('Asset Allocation', 'read'):
-        frappe.throw(_("You do not have permission to access this resource."), frappe.PermissionError)
+	"""Check if an asset is already allocated in another 'Asset Allocation' document."""
+	if not frappe.has_permission("Asset Allocation", "read"):
+		frappe.throw(_("You do not have permission to access this resource."), frappe.PermissionError)
 
-    allocations = frappe.get_all(
-        'Asset Allocation Table',
-        filters={'asset': asset, 'parent': ['!=', docname]},
-        fields=['parent']
-    )
-
-    if allocations:
-        return [alloc['parent'] for alloc in allocations]
-    return []
+	return frappe.get_all(
+		"Asset Allocation Table",
+		filters={"asset": asset, "parenttype": "Asset Allocation", "parent": ["!=", docname]},
+		pluck="parent",
+	)

@@ -3,48 +3,64 @@
 
 import frappe
 from frappe.model.document import Document
+from frappe.utils import flt, get_first_day, getdate, nowdate
+
+# South African standard VAT rate.
+VAT_RATE = 0.15
+
+# Every imported charge line that makes up the bill's subtotal.
+CHARGE_FIELDS = (
+    "subscription",
+    "subscription_discount",
+    "calls_national",
+    "entertainment_services",
+    "direct_provisioning",
+    "calls_international",
+    "calls_roaming",
+    "calls_discount",
+    "calls_data",
+    "calls_data_discount",
+    "calls_messaging",
+    "calls_messaging_discount",
+    "bundles_voice",
+    "bundles_messaging",
+    "bundles_data",
+    "bundles_adhoc",
+    "clip",
+    "blackberry",
+    "itemised_billing",
+    "vodamanage",
+    "look_4_services",
+    "insurance",
+    "equipment",
+    "connection_fee",
+    "connection_fee_discount",
+    "admin_fee",
+    "other",
+)
+
+# Fixed monthly charges that are part of the contract, so never overspend.
+CONTRACTED_FIELDS = ("subscription", "equipment", "clip", "itemised_billing", "insurance")
+
+
+def calculate_bill(values):
+    """Calculated totals and overspend for a bill's charge lines (a doc or dict)."""
+    subtotal = sum(flt(values.get(field)) for field in CHARGE_FIELDS)
+    vat = subtotal * VAT_RATE
+    overspend = subtotal - sum(flt(values.get(field)) for field in CONTRACTED_FIELDS)
+
+    return {
+        "calculated_subtotal": subtotal,
+        "calculated_vat": vat,
+        "calculated_total": subtotal + vat,
+        "overspend_amount": overspend,
+        "overspend": 1 if overspend > 0 else 0,
+    }
+
 
 class MonthlyBill(Document):
     def before_save(self):
-        # Calculate subtotal
-        self.calculated_subtotal = (
-            self.subscription +
-            self.subscription_discount +
-            self.calls_national +
-            self.entertainment_services +
-            self.direct_provisioning +
-            self.calls_international +
-            self.calls_roaming +
-            self.calls_discount +
-            self.calls_data +
-            self.calls_data_discount +
-            self.calls_messaging +
-            self.calls_messaging_discount +
-            self.bundles_voice +
-            self.bundles_messaging +
-            self.bundles_data +
-            self.bundles_adhoc +
-            self.clip +
-            self.blackberry +
-            self.itemised_billing +
-            self.vodamanage +
-            self.look_4_services +
-            self.insurance +
-            self.equipment +
-            self.connection_fee +
-            self.connection_fee_discount +
-            self.admin_fee +
-            self.other
-        )
+        self.update(calculate_bill(self))
 
-        # Calculate VAT (15% of subtotal)
-        self.calculated_vat = self.calculated_subtotal * 0.15
-
-        # Calculate total (subtotal + vat)
-        self.calculated_total = self.calculated_subtotal + self.calculated_vat
-
-        # Calculate overspend amount
-        self.overspend_amount = self.calculated_subtotal - self.subscription - self.equipment
-
-        # Set overspend flag
-        self.overspend = 1 if self.overspend_amount > 0 else 0
+        if not self.billing_month:
+            self.billing_month = get_first_day(getdate(self.creation or nowdate()))

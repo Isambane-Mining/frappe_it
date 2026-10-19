@@ -14,6 +14,7 @@
   "msisdn_no",
   "sim_card_no",
   "activation_date",
+  "billing_month",
   "status",
   "invoice_no",
   "user_name",
@@ -89,6 +90,13 @@
    "fieldname": "activation_date",
    "fieldtype": "Data",
    "label": "Activation Date"
+  },
+  {
+   "description": "Any date in the month this bill covers. Defaults to the month the bill was created.",
+   "fieldname": "billing_month",
+   "fieldtype": "Date",
+   "in_standard_filter": 1,
+   "label": "Billing Month"
   },
   {
    "fieldname": "status",
@@ -378,7 +386,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-08 14:42:23.743864",
+ "modified": "2026-10-19 09:43:38.812510",
  "modified_by": "Administrator",
  "module": "Frappe IT",
  "name": "Monthly Bill",

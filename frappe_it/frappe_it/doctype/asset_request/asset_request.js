@@ -4,17 +4,12 @@
 frappe.ui.form.on('Asset Request', {
     onload: function (frm) {
         // Default requested_by to logged-in user's Employee record on create
-        if (frm.is_new()) {
+        if (frm.is_new() && !frm.doc.requested_by) {
             frappe.call({
-                method: 'frappe.client.get_list',
-                args: {
-                    doctype: 'Employee',
-                    filters: { user_id: frappe.session.user },
-                    fields: ['name']
-                },
+                method: 'frappe_it.controllers.lookups.get_current_employee',
                 callback: function (r) {
-                    if (r.message && r.message.length) {
-                        frm.set_value('requested_by', r.message[0].name);
+                    if (r.message) {
+                        frm.set_value('requested_by', r.message);
                     }
                 }
             });
@@ -23,12 +18,14 @@ frappe.ui.form.on('Asset Request', {
 
     company: function(frm) {
         if (frm.doc.company) {
-            frappe.db.get_doc('Company', frm.doc.company).then(company => {
-                if (company.default_letter_head) {
-                    frm.set_value('letter_head', company.default_letter_head);
-                } else {
-                    frm.set_value('letter_head', '');
-                    frappe.msgprint('This company has no default Letter Head set.');
+            frappe.call({
+                method: 'frappe_it.controllers.lookups.get_company_letter_head',
+                args: { company: frm.doc.company },
+                callback: function (r) {
+                    frm.set_value('letter_head', r.message || '');
+                    if (!r.message) {
+                        frappe.msgprint(__('This company has no default Letter Head set.'));
+                    }
                 }
             });
         }
@@ -36,16 +33,16 @@ frappe.ui.form.on('Asset Request', {
 
     requested_by: function (frm) {
         if (frm.doc.requested_by) {
-            frappe.db.get_doc('Employee', frm.doc.requested_by)
-                .then(employee => {
-                    frm.set_value('requested_by_site', employee.branch || '');
+            frappe.call({
+                method: 'frappe_it.controllers.lookups.get_holder_details',
+                args: { doctype: 'Employee', docname: frm.doc.requested_by },
+                callback: function (r) {
+                    const employee = r.message || {};
+                    frm.set_value('requested_by_site', employee.site || '');
                     frm.set_value('requested_by_designation', employee.designation || '');
-                    frm.set_value('requested_by_names', employee.employee_name || '');
-                })
-                .catch(err => {
-                    frappe.msgprint(__('Failed to fetch employee details'));
-                    console.error(err);
-                });
+                    frm.set_value('requested_by_names', employee.name || '');
+                }
+            });
         }
     },
 
@@ -87,22 +84,16 @@ frappe.ui.form.on('Asset Request', {
         }
 
         frappe.call({
-            method: 'frappe_it.frappe_it.doctype.asset_request.asset_request.get_employee_or_asset_details',
+            method: 'frappe_it.controllers.lookups.get_holder_details',
             args: {
                 doctype: selected_doctype,
                 docname: docname,
             },
-            callback: function (response) {
-                if (response.message) {
-                    const { allocate_to_site, employee_asset_name, employee_asset_designation } = response.message;
-                    frm.set_value('allocate_to_site', allocate_to_site || null);
-                    frm.set_value('employee_asset_name', employee_asset_name || null);
-                    frm.set_value('employee_asset_designation', employee_asset_designation || null);
-                } else {
-                    frm.set_value('allocate_to_site', null);
-                    frm.set_value('employee_asset_name', null);
-                    frm.set_value('employee_asset_designation', null);
-                }
+            callback: function (r) {
+                const details = r.message || {};
+                frm.set_value('allocate_to_site', details.site || null);
+                frm.set_value('employee_asset_name', details.name || null);
+                frm.set_value('employee_asset_designation', details.designation || null);
             }
         });
     }

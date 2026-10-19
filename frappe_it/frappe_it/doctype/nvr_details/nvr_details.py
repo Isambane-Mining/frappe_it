@@ -5,16 +5,21 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import escape_html, get_url_to_form
 
+from frappe_it.frappe_it.utils import device_url_for
+
 
 class NVRDetails(Document):
-    pass
+    def validate(self):
+        self.ip_address = (self.ip_address or "").strip()
+        self.device_url = device_url_for(self.ip_address)
 
 
 @frappe.whitelist()
 def get_linked_cameras_html(nvr_details_name: str) -> str:
     """
     Render the linked IP Camera Details as a table (list view with columns),
-    replacing the old virtual child table implementation.
+    replacing the old virtual child table implementation. Credentials are
+    never rendered - open the camera record to see them.
     """
     if not nvr_details_name or nvr_details_name.startswith("new-"):
         return """
@@ -25,10 +30,12 @@ def get_linked_cameras_html(nvr_details_name: str) -> str:
         </div>
         """
 
-    cameras = frappe.get_all(
+    frappe.has_permission("NVR Details", "read", doc=nvr_details_name, throw=True)
+
+    cameras = frappe.get_list(
         "IP Camera Details",
         filters={"linked_to_nvr": nvr_details_name},
-        fields=["name", "ip_address", "location", "camera_link", "username", "password"],
+        fields=["name", "ip_address", "location", "camera_link"],
         order_by="modified desc",
     ) or []
 
@@ -64,8 +71,6 @@ def get_linked_cameras_html(nvr_details_name: str) -> str:
                 {escape_html(c.location or "")}
               </td>
               <td>{camera_link_html}</td>
-              <td class="it-linked-panel__mono">{escape_html(c.username or "")}</td>
-              <td class="it-linked-panel__mono">{escape_html(c.password or "")}</td>
             </tr>
             """
         )
@@ -85,8 +90,6 @@ def get_linked_cameras_html(nvr_details_name: str) -> str:
               <th>IP Address</th>
               <th>Location</th>
               <th>Camera Link</th>
-              <th>Username</th>
-              <th>Password</th>
             </tr>
           </thead>
           <tbody>

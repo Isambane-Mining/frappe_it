@@ -4,29 +4,11 @@
 frappe.ui.form.on("NVR Details", {
     refresh: function(frm) {
         render_linked_cameras_html(frm);
+        frappe.require('/assets/frappe_it/js/device_password.js', () => frappe_it.device_password.setup(frm));
     },
 
     after_save: function(frm) {
         render_linked_cameras_html(frm);
-    },
-
-    ip_address: function(frm) {
-        // Validate only when the field loses focus
-        frm.fields_dict.ip_address.$input.on("blur", function() {
-            const ipv4Regex =
-                /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-
-            const ipAddress = frm.doc.ip_address;
-
-            if (ipAddress) {
-                if (ipv4Regex.test(ipAddress)) {
-                    frm.set_value('device_url', `http://${ipAddress}`);
-                } else {
-                    frm.set_value('device_url', '');
-                    frappe.msgprint(__('Please enter a valid IPv4 address.'));
-                }
-            }
-        });
     }
 });
 

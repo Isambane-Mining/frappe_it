@@ -21,11 +21,11 @@ fixtures = [
 		"IT Manager",
 		"IT User"
 	]]]},
-	{"dt": "Custom DocPerm", "filters": [["role", "in", [
-		"IT Manager",
-		"IT User"
-	]]]},
 ]
+# The IT roles' permissions on core DocTypes (Asset, Employee, ...) are not a
+# Custom DocPerm fixture: importing one onto a DocType without Custom DocPerm
+# rows drops that DocType's standard permissions. frappe_it.setup.permissions
+# applies them safely after every migrate instead.
 # Asset Categories and Item Groups are not fixtures: Asset Categories need
 # company-specific accounts and Item Groups need the root Item Group, which
 # only exists after ERPNext's setup wizard. Both are created by frappe_it.setup
@@ -39,16 +39,14 @@ after_migrate = [
 	"frappe_it.setup.add_asset_doclinks.ensure_asset_links",
 	"frappe_it.setup.item_groups.ensure_item_groups",
 	"frappe_it.setup.asset_categories.ensure_asset_categories",
+	"frappe_it.setup.permissions.ensure_it_permissions",
 ]
+# Only the first creation of a request / return emails the IT Managers.
 doc_events = {
 	"Asset Request": {
 		"after_insert": "frappe_it.controllers.notifications.handle_doc_event_create",
-		"on_update": "frappe_it.controllers.notifications.handle_doc_event_update",
-		"on_submit": "frappe_it.controllers.notifications.handle_doc_event_submit",
 	},
 	"Asset Return": {
 		"after_insert": "frappe_it.controllers.notifications.handle_doc_event_create",
-		"on_update": "frappe_it.controllers.notifications.handle_doc_event_update",
-		"on_submit": "frappe_it.controllers.notifications.handle_doc_event_submit",
 	}
 }
