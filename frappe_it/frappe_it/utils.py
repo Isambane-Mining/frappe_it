@@ -15,3 +15,17 @@ def check_app_permission():
         return True
 
     return False
+
+
+def device_url_for(ip_address, label="IP Address"):
+	"""Validate an IPv4 address and return its http:// device URL."""
+	import ipaddress
+
+	from frappe import _
+
+	ip_address = (ip_address or "").strip()
+	try:
+		ipaddress.IPv4Address(ip_address)
+	except ValueError:
+		frappe.throw(_("{0} '{1}' is not a valid IPv4 address.").format(_(label), ip_address))
+	return f"http://{ip_address}"

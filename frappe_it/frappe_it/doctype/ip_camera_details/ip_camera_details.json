@@ -69,11 +69,9 @@
   },
   {
    "fieldname": "password",
-   "fieldtype": "Data",
-   "in_list_view": 1,
+   "fieldtype": "Password",
    "label": "Password",
-   "reqd": 1,
-   "search_index": 1
+   "reqd": 1
   },
   {
    "fieldname": "location",
@@ -137,7 +135,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-08 14:42:23.743325",
+ "modified": "2026-10-19 09:43:38.812510",
  "modified_by": "Administrator",
  "module": "Frappe IT",
  "name": "IP Camera Details",

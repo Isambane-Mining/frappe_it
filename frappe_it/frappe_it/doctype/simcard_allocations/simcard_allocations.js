@@ -19,24 +19,6 @@ frappe.ui.form.on('Simcard Allocations', {
         render_linked_bills_html(frm);
     },
 
-    employee: function (frm) {
-        if (frm.doc.employee) {
-            frappe.db.get_doc('Employee', frm.doc.employee)
-                .then(employee_doc => {
-                    if (employee_doc) {
-                        frm.set_value('employee_name', employee_doc.employee_name);
-                        frm.set_value('branch', employee_doc.branch);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching employee:', error);
-                });
-        } else {
-            frm.set_value('employee_name', '');
-            frm.set_value('branch', '');
-        }
-    },
-
     set_sim_no_query: function (frm) {
         frm.set_query('sim_no', function () {
             return {
@@ -85,20 +67,15 @@ frappe.ui.form.on('Simcard Allocations', {
         }
 
         frappe.call({
-            method: 'frappe_it.frappe_it.doctype.simcard_allocations.simcard_allocations.get_employee_or_site_details',
+            method: 'frappe_it.controllers.lookups.get_holder_details',
             args: {
                 doctype: selected_doctype,
                 docname: docname,
             },
-            callback: function (response) {
-                if (response.message) {
-                    const { site, employee_name } = response.message;
-                    frm.set_value('site', site || null);
-                    frm.set_value('employee_name', employee_name || null);
-                } else {
-                    frm.set_value('site', null);
-                    frm.set_value('employee_name', null);
-                }
+            callback: function (r) {
+                const details = r.message || {};
+                frm.set_value('site', details.site || null);
+                frm.set_value('employee_name', details.name || null);
             }
         });
     }

@@ -85,7 +85,7 @@
   },
   {
    "fieldname": "password",
-   "fieldtype": "Data",
+   "fieldtype": "Password",
    "label": "Password",
    "reqd": 1
   },
@@ -134,7 +134,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-08 14:42:23.742649",
+ "modified": "2026-10-19 09:43:38.812510",
  "modified_by": "Administrator",
  "module": "Frappe IT",
  "name": "NVR Details",

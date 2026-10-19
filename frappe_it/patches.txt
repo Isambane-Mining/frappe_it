@@ -2,9 +2,13 @@
 # Patches added in this section will be executed before doctypes are migrated
 # Read docs to understand patches: https://frappeframework.com/docs/v14/user/en/database-migrations
 frappe_it.patches.reset_frappe_it_doctype_custom_docperms
+frappe_it.patches.remove_it_role_core_custom_docperms
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
 frappe_it.patches.create_cellphone_simcard
 frappe_it.patches.create_cctv_cats
 frappe_it.patches.simcard_allocations_data_migration
+frappe_it.patches.encrypt_cctv_passwords
+frappe_it.patches.recalculate_monthly_bills
+frappe_it.patches.backfill_asset_custody

@@ -10,8 +10,7 @@
   "ip_address",
   "location",
   "camera_link",
-  "username",
-  "password"
+  "username"
  ],
  "fields": [
   {
@@ -51,14 +50,6 @@
   },
   {
    "columns": 2,
-   "fieldname": "password",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Password",
-   "read_only": 1
-  },
-  {
-   "columns": 2,
    "fieldname": "camera_link",
    "fieldtype": "Data",
    "in_list_view": 1,
@@ -71,7 +62,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-01-08 15:36:48.097970",
+ "modified": "2026-10-19 09:43:38.812510",
  "modified_by": "Administrator",
  "module": "Frappe IT",
  "name": "Linked Cameras",

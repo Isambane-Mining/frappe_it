@@ -15,9 +15,7 @@ frappe.ui.form.on('Asset Allocation', {
         // Set branch_or_location based on the selected doctype
         if (selected_doctype === 'Employee') {
             frm.set_value('branch_or_location', 'Branch');
-        } else if (selected_doctype === 'Asset') {
-            frm.set_value('branch_or_location', 'Location');
-        } else if (selected_doctype === 'Location') {
+        } else if (['Asset', 'Location'].includes(selected_doctype)) {
             frm.set_value('branch_or_location', 'Location');
         }
 
@@ -25,7 +23,6 @@ frappe.ui.form.on('Asset Allocation', {
         frm.set_value('site', null);
         frm.set_value('employee_asset_name', null);
 
-        // Trigger updates for site and employee_asset_name
         frm.trigger('update_site_and_name');
     },
 
@@ -43,22 +40,16 @@ frappe.ui.form.on('Asset Allocation', {
             return;
         }
 
-        // Call the server script to fetch both the site and the employee_asset_name
         frappe.call({
-            method: 'frappe_it.frappe_it.doctype.asset_allocation.asset_allocation.get_employee_or_asset_details',
+            method: 'frappe_it.controllers.lookups.get_holder_details',
             args: {
                 doctype: selected_doctype,
                 docname: docname,
             },
-            callback: function (response) {
-                if (response.message) {
-                    const { site, employee_asset_name } = response.message;
-                    frm.set_value('site', site || null);
-                    frm.set_value('employee_asset_name', employee_asset_name || null);
-                } else {
-                    frm.set_value('site', null);
-                    frm.set_value('employee_asset_name', null);
-                }
+            callback: function (r) {
+                const details = r.message || {};
+                frm.set_value('site', details.site || null);
+                frm.set_value('employee_asset_name', details.name || null);
             }
         });
     }
@@ -68,44 +59,34 @@ frappe.ui.form.on('Asset Allocation Table', {
     asset: function (frm, cdt, cdn) {
         let row = locals[cdt][cdn];
 
-        if (row.asset) {
-            // Call the whitelisted method to check allocation
-            frappe.call({
-                method: 'frappe_it.frappe_it.doctype.asset_allocation.asset_allocation.check_asset_allocation',
-                args: {
-                    asset: row.asset,
-                    docname: frm.doc.name
-                },
-                callback: function (r) {
-                    if (r.message && r.message.length > 0) {
-                        let allocated_to = r.message.join(', ');
-                        frappe.msgprint({
-                            title: __('Asset Already Allocated'),
-                            message: __('The asset {0} is already allocated in: {1}', [row.asset, allocated_to]),
-                            indicator: 'red'
-                        });
-                        frappe.model.set_value(cdt, cdn, 'asset', '');
-                    } else {
-                        // Fetch asset details if not allocated
-                        frappe.call({
-                            method: 'frappe.client.get',
-                            args: {
-                                doctype: 'Asset',
-                                name: row.asset
-                            },
-                            callback: function (r) {
-                                if (r.message) {
-                                    let item_name = r.message.item_name || '';
-                                    let asset_name = r.message.asset_name || '';
-                                    frappe.model.set_value(cdt, cdn, 'asset_name', `${item_name} - ${asset_name}`);
-                                }
-                            }
-                        });
-                    }
-                }
-            });
-        } else {
+        if (!row.asset) {
             frappe.model.set_value(cdt, cdn, 'asset_name', '');
+            return;
         }
+
+        frappe.call({
+            method: 'frappe_it.frappe_it.doctype.asset_allocation.asset_allocation.check_asset_allocation',
+            args: {
+                asset: row.asset,
+                docname: frm.doc.name
+            },
+            callback: function (r) {
+                if (r.message && r.message.length > 0) {
+                    frappe.msgprint({
+                        title: __('Asset Already Allocated'),
+                        message: __('The asset {0} is already allocated in: {1}', [row.asset, r.message.join(', ')]),
+                        indicator: 'red'
+                    });
+                    frappe.model.set_value(cdt, cdn, 'asset', '');
+                    return;
+                }
+
+                frappe.db.get_value('Asset', row.asset, ['item_name', 'asset_name']).then(({ message }) => {
+                    if (message) {
+                        frappe.model.set_value(cdt, cdn, 'asset_name', `${message.item_name || ''} - ${message.asset_name || ''}`);
+                    }
+                });
+            }
+        });
     }
 });

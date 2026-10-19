@@ -3,8 +3,10 @@
 
 import frappe
 from frappe.model.document import Document
-from frappe.utils import nowdate, escape_html, get_url_to_form
 from frappe import _
+from frappe.utils import cint, escape_html, get_url_to_form
+
+from frappe_it.controllers.asset_custody import add_assets_to_allocation, remove_assets_from_allocations
 
 
 class SimcardAllocations(Document):
@@ -12,137 +14,68 @@ class SimcardAllocations(Document):
         self.update_asset_allocations()
 
     def update_asset_allocations(self):
+        """Mirror this SIM onto the holder's Asset Allocation (which in turn
+        updates the SIM Asset's custodian / location)."""
         if not self.sim_no:
             return
 
         if not self.employee_or_site or not self.allocated_to:
-            frappe.throw("Allocated To and its type must be set.")
+            frappe.throw(_("Allocated To and its type must be set."))
         if not self.branch_or_location or not self.site:
-            frappe.throw("Site and its type must be set.")
+            frappe.throw(_("Site and its type must be set."))
+        if not frappe.db.exists(self.employee_or_site, self.allocated_to):
+            frappe.throw(_("{0} '{1}' does not exist.").format(self.employee_or_site, self.allocated_to))
+        if not frappe.db.exists(self.branch_or_location, self.site):
+            frappe.throw(_("{0} '{1}' does not exist.").format(self.branch_or_location, self.site))
 
-        asset = self.sim_no
         previous_doc = self.get_doc_before_save()
-        old_doctype = previous_doc.employee_or_site if previous_doc else None
-        old_allocated_to = previous_doc.allocated_to if previous_doc else None
+        if previous_doc and (
+            previous_doc.employee_or_site != self.employee_or_site
+            or previous_doc.allocated_to != self.allocated_to
+        ):
+            # Moving to another Employee sets the custodian anyway; only a move
+            # to a Location needs the old Employee's custody released.
+            remove_assets_from_allocations(
+                previous_doc.employee_or_site,
+                previous_doc.allocated_to,
+                [self.sim_no],
+                skip_release=self.employee_or_site == "Employee",
+            )
 
-        if previous_doc and (old_doctype != self.employee_or_site or old_allocated_to != self.allocated_to):
-            self.remove_asset_from_allocation(old_doctype, old_allocated_to, asset)
-
-        self.add_asset_to_allocation(asset)
-
-    def remove_asset_from_allocation(self, doctype, allocated_to, asset):
-        if not doctype or not allocated_to:
-            return
-
-        allocations = frappe.get_all(
-            "Asset Allocation",
-            filters={"employee_or_asset": doctype, "allocated_to": allocated_to},
-            fields=["name"],
+        add_assets_to_allocation(
+            self.employee_or_site,
+            self.allocated_to,
+            self.branch_or_location,
+            self.site,
+            [self.sim_no],
+            note=_("Linked via Simcard Allocation {0}").format(self.name),
         )
 
-        for alloc in allocations:
-            doc = frappe.get_doc("Asset Allocation", alloc.name)
-            original = len(doc.list_of_allocated_assets)
-            doc.list_of_allocated_assets = [row for row in doc.list_of_allocated_assets if row.asset != asset]
-            if len(doc.list_of_allocated_assets) != original:
-                doc.save(ignore_permissions=True)
-
-    def add_asset_to_allocation(self, asset):
-        try:
-            if not self.employee_or_site or not self.allocated_to:
-                frappe.throw("Allocated To must be set.")
-            if not self.branch_or_location or not self.site:
-                frappe.throw("Site must be set.")
-
-            if not frappe.db.exists(self.employee_or_site, self.allocated_to):
-                frappe.throw(f"{self.employee_or_site} '{self.allocated_to}' does not exist.")
-            if not frappe.db.exists(self.branch_or_location, self.site):
-                frappe.throw(f"{self.branch_or_location} '{self.site}' does not exist.")
-
-            existing = frappe.get_all(
-                "Asset Allocation",
-                {"employee_or_asset": self.employee_or_site, "allocated_to": self.allocated_to},
-                ["name"],
-            )
-
-            if existing:
-                doc = frappe.get_doc("Asset Allocation", existing[0].name)
-            else:
-                doc = frappe.new_doc("Asset Allocation")
-                doc.employee_or_asset = self.employee_or_site
-                doc.allocated_to = self.allocated_to
-                doc.branch_or_location = self.branch_or_location
-                doc.site = self.site
-
-                if self.employee_or_site == "Employee":
-                    doc.employee_asset_name = frappe.db.get_value("Employee", self.allocated_to, "employee_name")
-                else:
-                    doc.employee_asset_name = self.allocated_to
-
-                doc.insert(ignore_permissions=True)
-
-            if not any(row.asset == asset for row in doc.list_of_allocated_assets):
-                asset_name = frappe.db.get_value("Asset", asset, "asset_name")
-                doc.append(
-                    "list_of_allocated_assets",
-                    {
-                        "asset": asset,
-                        "asset_name": asset_name,
-                        "check_out_date": nowdate(),
-                        "notes": f"Linked via Simcard Allocation {self.name}",
-                    },
-                )
-                doc.save(ignore_permissions=True)
-
-        except Exception:
-            frappe.log_error(frappe.get_traceback(), "Simcard Allocations Error")
-            raise
-
 
 @frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
 def get_available_simcards(doctype, txt, searchfield, start, page_len, filters):
-    simcards = frappe.db.sql(
-        """
-        SELECT
-            name, asset_name
-        FROM
-            `tabAsset`
-        WHERE
-            asset_category = 'Cellphone Simcards'
-            AND name NOT IN (
-                SELECT sim_no FROM `tabSimcard Allocations` WHERE sim_no IS NOT NULL
-            )
-            AND ({key} LIKE %(txt)s OR asset_name LIKE %(txt)s)
-        LIMIT %(start)s, %(page_len)s
-        """.format(key=searchfield),
-        {"txt": f"%{txt}%", "start": start, "page_len": page_len},
+    """Link query for sim_no: SIM card Assets not yet on a Simcard Allocation.
+    Searches name and asset_name only - the client-supplied searchfield is
+    deliberately never used in the query."""
+    if not frappe.has_permission("Asset", "select"):
+        return []
+
+    asset = frappe.qb.DocType("Asset")
+    allocation = frappe.qb.DocType("Simcard Allocations")
+    allocated = frappe.qb.from_(allocation).select(allocation.sim_no).where(allocation.sim_no.isnotnull())
+    pattern = f"%{txt}%"
+
+    return (
+        frappe.qb.from_(asset)
+        .select(asset.name, asset.asset_name)
+        .where(asset.asset_category == "Cellphone Simcards")
+        .where(asset.name.notin(allocated))
+        .where(asset.name.like(pattern) | asset.asset_name.like(pattern))
+        .limit(cint(page_len) or 20)
+        .offset(cint(start))
+        .run()
     )
-    return simcards
-
-
-@frappe.whitelist()
-def get_employee_or_site_details(doctype, docname):
-    if not doctype or not docname:
-        frappe.throw(_("Invalid parameters provided."))
-
-    try:
-        if doctype == "Employee":
-            doc = frappe.get_doc("Employee", docname)
-            return {
-                "site": doc.branch if doc.branch else _("Branch not found"),
-                "employee_name": doc.employee_name if doc.employee_name else _("Name not found"),
-            }
-        elif doctype == "Location":
-            doc = frappe.get_doc("Location", docname)
-            return {
-                "site": doc.name if doc.name else _("Location not found"),
-                "employee_name": doc.name if doc.name else _("Location not found"),
-            }
-        else:
-            frappe.throw(_("Invalid Doctype: {0}").format(doctype))
-    except Exception as e:
-        frappe.log_error(frappe.get_traceback(), _("Error in get_employee_or_site_details"))
-        frappe.throw(_("An error occurred while fetching the document data: {0}").format(str(e)))
 
 
 @frappe.whitelist()
@@ -163,6 +96,7 @@ def get_linked_bills_html(simcard_alloc_name: str) -> str:
         """
 
     doc = frappe.get_doc("Simcard Allocations", simcard_alloc_name)
+    doc.check_permission("read")
     if not doc.msisdn:
         return """
         <div class="it-linked-panel">
@@ -170,7 +104,7 @@ def get_linked_bills_html(simcard_alloc_name: str) -> str:
         </div>
         """
 
-    bills = frappe.get_all(
+    bills = frappe.get_list(
         "Monthly Bill",
         filters={"msisdn_no": doc.msisdn},
         fields=["name", "total", "overspend_amount"],

@@ -1,60 +1,56 @@
 // Copyright (c) 2025, buff0k and contributors
 // For license information, please see license.txt
 
+function get_employee_details(employee) {
+    return frappe.call({
+        method: 'frappe_it.controllers.lookups.get_holder_details',
+        args: { doctype: 'Employee', docname: employee },
+    }).then(r => r.message || {});
+}
+
 frappe.ui.form.on("Asset Return", {
-    receiver: function (frm) {
-        if (frm.doc.receiver) {
-            frappe.db.get_doc('Employee', frm.doc.receiver)
-                .then(employee => {
-                    frm.set_value('receiver_branch', employee.branch || '');
-                    frm.set_value('receiver_designation', employee.designation || '');
-                    frm.set_value('receiver_name', employee.employee_name || '');
-                })
-                .catch(err => {
-                    frappe.msgprint(__('Failed to fetch employee details'));
-                    console.error(err);
-                });
-        }
+    receiver: async function (frm) {
+        if (!frm.doc.receiver) return;
+
+        const employee = await get_employee_details(frm.doc.receiver);
+        frm.set_value('receiver_branch', employee.site || '');
+        frm.set_value('receiver_designation', employee.designation || '');
+        frm.set_value('receiver_name', employee.name || '');
     },
 
     employee: async function (frm) {
         if (!frm.doc.employee) return;
 
-        try {
-            // Set Employee Details
-            const employee = await frappe.db.get_doc('Employee', frm.doc.employee);
-            frm.set_value('branch', employee.branch || '');
-            frm.set_value('designation', employee.designation || '');
-            frm.set_value('employee_name', employee.employee_name || '');
+        const employee = await get_employee_details(frm.doc.employee);
+        frm.set_value('branch', employee.site || '');
+        frm.set_value('designation', employee.designation || '');
+        frm.set_value('employee_name', employee.name || '');
 
-            // Fetch all Asset Allocation documents with allocated_to matching this employee
-            const allocations = await frappe.db.get_list('Asset Allocation', {
-                fields: ['name', 'allocated_to'],
-                filters: {
-                    allocated_to: frm.doc.employee
-                }
-            });
-
-            frm.clear_table('list_of_allocated_assets');
-
-            for (let alloc of allocations) {
-                const alloc_doc = await frappe.db.get_doc('Asset Allocation', alloc.name);
-                for (let asset_row of alloc_doc.list_of_allocated_assets || []) {
-                    let new_row = frm.add_child('list_of_allocated_assets');
-                    new_row.asset = asset_row.asset;
-                    new_row.asset_name = asset_row.asset_name;
-                    new_row.check_in_date = frappe.datetime.get_today(); // or leave blank
-                    new_row.condition_photo_out = asset_row.condition_photo;
-                    new_row.notes = asset_row.notes;
-                }
+        // Pre-fill with what is currently allocated to this employee
+        const allocations = await frappe.db.get_list('Asset Allocation', {
+            fields: ['name'],
+            filters: {
+                employee_or_asset: 'Employee',
+                allocated_to: frm.doc.employee
             }
+        });
 
-            frm.refresh_field('list_of_allocated_assets');
-        } catch (err) {
-            frappe.msgprint(__('Failed to fetch employee or allocation details'));
-            console.error(err);
+        frm.clear_table('list_of_allocated_assets');
+
+        for (let alloc of allocations) {
+            const alloc_doc = await frappe.db.get_doc('Asset Allocation', alloc.name);
+            for (let asset_row of alloc_doc.list_of_allocated_assets || []) {
+                let new_row = frm.add_child('list_of_allocated_assets');
+                new_row.asset = asset_row.asset;
+                new_row.asset_name = asset_row.asset_name;
+                new_row.check_in_date = frappe.datetime.get_today();
+                new_row.condition_photo_out = asset_row.condition_photo;
+                new_row.notes = asset_row.notes;
+            }
         }
-}
+
+        frm.refresh_field('list_of_allocated_assets');
+    }
 });
 
 frappe.ui.form.on('Asset Return Table', {
