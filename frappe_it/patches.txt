@@ -11,4 +11,5 @@ frappe_it.patches.create_cctv_cats
 frappe_it.patches.simcard_allocations_data_migration
 frappe_it.patches.encrypt_cctv_passwords
 frappe_it.patches.recalculate_monthly_bills
-frappe_it.patches.backfill_asset_custody
+frappe_it.patches.submit_draft_it_assets
+frappe_it.patches.backfill_asset_custody #2026-10-20 re-run after submit_draft_it_assets

@@ -16,14 +16,18 @@ class TestSimcardQuery(IntegrationTestCase):
 		with self.assertRaises(frappe.DataError):
 			get_available_simcards("Asset", "", "name) or 1=1 -- ", 0, 20, {})
 
-	def test_only_unallocated_simcards_are_offered(self):
+	def test_only_submitted_unallocated_simcards_are_offered(self):
 		location = make_location("_Test IT Store")
-		asset = make_asset("_T-IT-SIM-Q", location)
+		asset = make_asset("_T-IT-SIM-Q", location, submitted=True)
 		frappe.db.set_value("Asset", asset, "asset_category", "Cellphone Simcards")
+
+		draft = make_asset("_T-IT-SIM-QD", location)
+		frappe.db.set_value("Asset", draft, "asset_category", "Cellphone Simcards")
 
 		names = [row[0] for row in get_available_simcards("Asset", "_T-IT-SIM-Q", "name", 0, 20, {})]
 
 		self.assertIn(asset, names)
+		self.assertNotIn(draft, names)
 
 
 class TestPermissionCheckedLookups(IntegrationTestCase):

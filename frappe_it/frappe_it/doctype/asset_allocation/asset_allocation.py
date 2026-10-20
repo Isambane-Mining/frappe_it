@@ -6,7 +6,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import get_link_to_form
 
-from frappe_it.controllers.asset_custody import release_allocation, sync_allocation
+from frappe_it.controllers.asset_custody import is_allocatable, release_allocation, sync_allocation
 
 
 class AssetAllocation(Document):
@@ -31,6 +31,13 @@ class AssetAllocation(Document):
 		added = seen - previous
 		if not added:
 			return
+
+		not_submitted = sorted(asset for asset in added if not is_allocatable(asset))
+		if not_submitted:
+			frappe.throw(
+				_("Only submitted Assets can be allocated: {0}").format(", ".join(not_submitted)),
+				title=_("Asset Not Submitted"),
+			)
 
 		clashes = frappe.get_all(
 			"Asset Allocation Table",

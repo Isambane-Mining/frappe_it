@@ -55,7 +55,7 @@ class SimcardAllocations(Document):
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def get_available_simcards(doctype, txt, searchfield, start, page_len, filters):
-    """Link query for sim_no: SIM card Assets not yet on a Simcard Allocation.
+    """Link query for sim_no: submitted SIM card Assets not yet on a Simcard Allocation.
     Searches name and asset_name only - the client-supplied searchfield is
     deliberately never used in the query."""
     if not frappe.has_permission("Asset", "select"):
@@ -70,6 +70,8 @@ def get_available_simcards(doctype, txt, searchfield, start, page_len, filters):
         frappe.qb.from_(asset)
         .select(asset.name, asset.asset_name)
         .where(asset.asset_category == "Cellphone Simcards")
+        .where(asset.docstatus == 1)
+        .where(asset.status.notin(["Scrapped", "Sold"]))
         .where(asset.name.notin(allocated))
         .where(asset.name.like(pattern) | asset.asset_name.like(pattern))
         .limit(cint(page_len) or 20)

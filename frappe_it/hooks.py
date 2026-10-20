@@ -48,5 +48,10 @@ doc_events = {
 	},
 	"Asset Return": {
 		"after_insert": "frappe_it.controllers.notifications.handle_doc_event_create",
-	}
+	},
+	# An allocated Asset must leave its Asset Allocation before it can be cancelled or deleted.
+	"Asset": {
+		"before_cancel": "frappe_it.controllers.asset_custody.block_if_allocated",
+		"on_trash": "frappe_it.controllers.asset_custody.block_if_allocated",
+	},
 }

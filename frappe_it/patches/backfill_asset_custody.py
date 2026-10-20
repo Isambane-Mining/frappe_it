@@ -1,6 +1,8 @@
 """Bring every allocated Asset's own Custodian / Location in line with its
-current Asset Allocation, the same way saving the allocation now does
-(Draft Assets updated in place, submitted ones through an Asset Movement).
+current Asset Allocation through Asset Movements, the same way saving the
+allocation now does. Runs after submit_draft_it_assets; an allocated Asset
+that is still Draft (not an IT category, or refused on submit) can't be moved
+and is logged.
 
 An Asset listed on more than one Asset Allocation is skipped - there is no
 single right holder to apply - and logged, as is any Asset ERPNext refuses
@@ -10,7 +12,7 @@ and re-save the allocation.
 
 import frappe
 
-from frappe_it.controllers.asset_custody import apply_to_asset, get_holder_targets
+from frappe_it.controllers.asset_custody import apply_to_asset, get_holder_targets, is_allocatable
 
 
 def execute():
@@ -34,6 +36,10 @@ def execute():
 			continue
 
 		(allocation,) = parents
+		if not is_allocatable(asset):
+			problems.append(f"{asset} ({allocation}): not a submitted, in-service Asset - skipped")
+			continue
+
 		if allocation not in targets_by_allocation:
 			holder_type, holder = frappe.db.get_value(
 				"Asset Allocation", allocation, ["employee_or_asset", "allocated_to"]
