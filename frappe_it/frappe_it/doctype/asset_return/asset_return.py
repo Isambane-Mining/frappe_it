@@ -11,6 +11,7 @@ from frappe_it.controllers.asset_custody import (
 	cancel_asset_movements,
 	find_allocations,
 	remove_assets_from_allocations,
+	return_targets,
 )
 
 
@@ -39,12 +40,14 @@ class AssetReturn(Document):
 			)
 
 	def on_submit(self):
-		"""The returned assets leave the employee's allocation and the
-		receiver becomes their custodian."""
+		"""The returned assets leave the employee's allocation and go back to
+		IT (no custodian, RETURN_LOCATION). The movements reference this
+		return, so cancelling it restores exactly what was there before."""
 		assets = self._assets()
+		targets = return_targets()
 		remove_assets_from_allocations("Employee", self.employee, assets, skip_release=True)
 		for asset in assets:
-			apply_to_asset(asset, reference=(self.doctype, self.name), custodian=self.receiver)
+			apply_to_asset(asset, reference=(self.doctype, self.name), **targets)
 
 	def on_cancel(self):
 		"""Undo the return: reverse its Asset Movements and put the assets back

@@ -4,36 +4,37 @@
 """Keep each Asset's own Custodian / Location in step with Asset Allocation.
 
 Asset Allocation is a living document - one per holder, never submitted, rows
-added and removed as kit is handed out and returned. Every save pushes the
-holder onto the Assets it lists:
+added and removed as kit is handed out and returned. Only submitted Assets can
+be allocated. Every save pushes the holder onto the Assets it lists through a
+real, submitted Asset Movement referencing the document that caused it:
 
-    Employee holder -> Asset.custodian = that Employee (location untouched)
-    Location holder -> Asset.location  = that Location (custodian untouched)
-    Asset holder    -> Asset.location  = the parent Asset's location
+    Employee holder -> custodian = that Employee (location untouched)
+    Location holder -> location  = that Location (custodian untouched)
+    Asset holder    -> location  = the parent Asset's location
 
-Removing a row from an Employee's allocation releases custody: the Asset's
-custodian is cleared, or handed to whoever received it on an Asset Return.
+An Asset that leaves an allocation (row removed, holder changed, allocation
+deleted, Asset Return) goes back to IT: no custodian, location RETURN_LOCATION.
 
-How the Asset is updated depends on its docstatus:
-
-* Draft Assets (most of the IT register, until it moves to full accounting)
-  can't take an Asset Movement - ERPNext refuses to move a Draft Asset - so
-  the fields are written directly and a timeline comment records why.
-* Submitted Assets get a real, submitted Asset Movement referencing the
-  document that caused it. ERPNext's Asset Movement is not a diff: on submit
-  it applies the latest movement's target_location AND to_employee as the
-  Asset's new state (custodian even when blank). Every movement here
-  therefore carries the unchanged value forward, exactly as engineering's
-  Vehicle Allocation does.
-* Scrapped / Sold / cancelled Assets are left alone.
+ERPNext's Asset Movement is not a diff: on submit it applies the latest
+movement's target_location AND to_employee as the Asset's new state (custodian
+even when blank). Every movement here therefore states the complete intended
+state, as engineering's Vehicle Allocation does.
 """
 
 import frappe
 from frappe import _
-from frappe.utils import get_link_to_form, now_datetime
+from frappe.utils import get_link_to_form, now_datetime, nowdate
+
+# Where IT keeps unallocated kit.
+RETURN_LOCATION = "Plot 22"
 
 UNCHANGED = object()
 FROZEN_STATUSES = ("Scrapped", "Sold")
+
+
+def is_allocatable(asset_name):
+	docstatus, status = frappe.db.get_value("Asset", asset_name, ["docstatus", "status"]) or (None, None)
+	return docstatus == 1 and status not in FROZEN_STATUSES
 
 
 def get_holder_targets(holder_type, holder):
@@ -54,130 +55,88 @@ def get_holder_targets(holder_type, holder):
 	return {}
 
 
+def return_targets():
+	if not frappe.db.exists("Location", RETURN_LOCATION):
+		frappe.throw(
+			_("Location {0} (where returned IT assets go) does not exist.").format(frappe.bold(RETURN_LOCATION))
+		)
+	return {"custodian": None, "location": RETURN_LOCATION}
+
+
 def sync_allocation(allocation):
-	"""Push an Asset Allocation's holder onto its Assets, and release custody
-	of any Asset that left an Employee holder since the last save."""
+	"""Push an Asset Allocation's holder onto its Assets, and send any Asset
+	that left it since the last save back to IT."""
 	before = allocation.get_doc_before_save()
 	reference = (allocation.doctype, allocation.name)
 
 	targets = get_holder_targets(allocation.employee_or_asset, allocation.allocated_to)
 	current_assets = [row.asset for row in allocation.list_of_allocated_assets if row.asset]
 
-	released = set()
-	old_holder_type = old_holder = None
+	previous_assets, holder_changed, old_holder_type = set(), False, None
 	if before:
-		old_holder_type, old_holder = before.employee_or_asset, before.allocated_to
+		old_holder_type = before.employee_or_asset
 		previous_assets = {row.asset for row in before.list_of_allocated_assets if row.asset}
-		holder_changed = (old_holder_type, old_holder) != (
+		holder_changed = (before.employee_or_asset, before.allocated_to) != (
 			allocation.employee_or_asset,
 			allocation.allocated_to,
 		)
-		# A changed holder releases every asset from the old one, not just removed rows.
-		released = previous_assets if holder_changed else previous_assets - set(current_assets)
+
+	for asset in current_assets:
+		changes = dict(targets)
+		# Moved off an Employee onto a Location / Asset: nobody holds it any more.
+		if holder_changed and old_holder_type == "Employee" and "custodian" not in changes:
+			changes["custodian"] = None
+		apply_to_asset(asset, reference=reference, **changes)
 
 	skip_release = allocation.flags.get("frappe_it_skip_release") or set()
-
-	for asset in dict.fromkeys(current_assets + sorted(released)):
-		changes = dict(targets) if asset in current_assets else {}
-
-		if (
-			asset in released
-			and asset not in skip_release
-			and old_holder_type == "Employee"
-			and "custodian" not in changes
-			and frappe.db.get_value("Asset", asset, "custodian") == old_holder
-		):
-			changes["custodian"] = None
-
-		if changes:
-			apply_to_asset(asset, reference=reference, **changes)
+	for asset in sorted(previous_assets - set(current_assets) - set(skip_release)):
+		apply_to_asset(asset, reference=reference, **return_targets())
 
 
 def release_allocation(allocation):
-	"""An Asset Allocation is being deleted: release custody of its Assets."""
-	if allocation.employee_or_asset != "Employee":
-		return
-
+	"""An Asset Allocation is being deleted: its Assets go back to IT."""
 	for row in allocation.list_of_allocated_assets:
-		if row.asset and frappe.db.get_value("Asset", row.asset, "custodian") == allocation.allocated_to:
-			apply_to_asset(row.asset, reference=(allocation.doctype, allocation.name), custodian=None)
+		if row.asset:
+			apply_to_asset(row.asset, reference=(allocation.doctype, allocation.name), **return_targets())
 
 
 def apply_to_asset(asset_name, reference, custodian=UNCHANGED, location=UNCHANGED):
-	"""Set an Asset's custodian and/or location; a no-op if nothing differs.
-
-	`reference` is a (doctype, name) tuple for the document causing the change.
-	A blank location is never applied - an Asset always keeps one."""
+	"""Move a submitted Asset to this custodian and/or location with one Asset
+	Movement; a no-op if nothing differs. Draft, Scrapped and Sold Assets are
+	left alone. `reference` is the (doctype, name) causing the change."""
 	asset = frappe.db.get_value(
 		"Asset",
 		asset_name,
 		["name", "docstatus", "status", "custodian", "location", "company"],
 		as_dict=True,
 	)
-	if not asset:
+	if not asset or asset.docstatus != 1 or asset.status in FROZEN_STATUSES:
 		return
 
-	new_custodian = asset.custodian if custodian is UNCHANGED else (custodian or None)
+	new_custodian = (asset.custodian if custodian is UNCHANGED else custodian) or None
 	new_location = asset.location if location is UNCHANGED or not location else location
 
-	if (new_custodian or None) == (asset.custodian or None) and new_location == asset.location:
+	if new_custodian == (asset.custodian or None) and new_location == asset.location:
 		return
 
-	if asset.docstatus == 0:
-		_update_draft_asset(asset, new_custodian, new_location, reference)
-	elif asset.docstatus == 1 and asset.status not in FROZEN_STATUSES:
-		_move_submitted_asset(asset, new_custodian, new_location, reference)
+	if new_location != asset.location:
+		# A Transfer applies its to_employee too, so one movement covers both.
+		purpose, source_location = "Transfer", asset.location
+	elif new_custodian:
+		purpose, source_location = "Issue", None
+	else:
+		# Same location, custody released: a Receipt with no employee is the
+		# only movement ERPNext accepts that blanks the custodian.
+		purpose, source_location = "Receipt", None
 
-
-def _update_draft_asset(asset, custodian, location, reference):
-	frappe.db.set_value("Asset", asset.name, {"custodian": custodian, "location": location})
-
-	changes = []
-	if (custodian or None) != (asset.custodian or None):
-		changes.append(_("Custodian: {0} → {1}").format(asset.custodian or "-", custodian or "-"))
-	if location != asset.location:
-		changes.append(_("Location: {0} → {1}").format(asset.location or "-", location or "-"))
-
-	frappe.get_doc(
-		{
-			"doctype": "Comment",
-			"comment_type": "Info",
-			"reference_doctype": "Asset",
-			"reference_name": asset.name,
-			"content": _("{0} (Draft Asset, updated by {1})").format(
-				"; ".join(changes), get_link_to_form(*reference)
-			),
-		}
-	).insert(ignore_permissions=True)
-
-
-def _move_submitted_asset(asset, custodian, location, reference):
-	current_location, current_custodian = asset.location, asset.custodian
-
-	if location != current_location:
-		_create_asset_movement(
-			asset,
-			reference,
-			purpose="Transfer",
-			source_location=current_location,
-			target_location=location,
-			to_employee=current_custodian,  # carry forward - see module docstring
-		)
-		current_location = location
-
-	if (custodian or None) != (current_custodian or None):
-		if custodian:
-			_create_asset_movement(
-				asset,
-				reference,
-				purpose="Issue",
-				target_location=current_location,  # carry forward
-				to_employee=custodian,
-			)
-		else:
-			# Releasing custody: a Receipt back into the same location with no
-			# employee is the only movement ERPNext accepts that blanks custodian.
-			_create_asset_movement(asset, reference, purpose="Receipt", target_location=current_location)
+	_create_asset_movement(
+		asset,
+		reference,
+		purpose=purpose,
+		source_location=source_location,
+		target_location=new_location,
+		to_employee=new_custodian,
+	)
 
 
 def _create_asset_movement(asset, reference, purpose, source_location=None, target_location=None, to_employee=None):
@@ -229,8 +188,6 @@ def find_allocations(holder_type, holder):
 def add_assets_to_allocation(holder_type, holder, site_type, site, assets, note=None, check_out_date=None):
 	"""Append Assets to the holder's Asset Allocation, creating it if needed.
 	Saving runs the normal validation and custody sync."""
-	from frappe.utils import nowdate
-
 	existing = find_allocations(holder_type, holder)
 	if existing:
 		doc = frappe.get_doc("Asset Allocation", existing[0])
@@ -270,7 +227,7 @@ def add_assets_to_allocation(holder_type, holder, site_type, site, assets, note=
 
 def remove_assets_from_allocations(holder_type, holder, assets, skip_release=False):
 	"""Drop Assets from every Asset Allocation of this holder. With skip_release
-	the custody sync leaves the removed Assets' custodian for the caller to set."""
+	the removed Assets are not sent back to IT - the caller moves them."""
 	assets = set(assets)
 	for name in find_allocations(holder_type, holder):
 		doc = frappe.get_doc("Asset Allocation", name)
@@ -281,3 +238,22 @@ def remove_assets_from_allocations(holder_type, holder, assets, skip_release=Fal
 		if skip_release:
 			doc.flags.frappe_it_skip_release = assets
 		doc.save(ignore_permissions=True)
+
+
+def block_if_allocated(doc, method=None):
+	"""Asset before_cancel / on_trash: an Asset still on an Asset Allocation
+	must be removed from it (or returned) first."""
+	allocations = frappe.get_all(
+		"Asset Allocation Table",
+		filters={"asset": doc.name, "parenttype": "Asset Allocation"},
+		pluck="parent",
+		distinct=True,
+	)
+	if allocations:
+		frappe.throw(
+			_("Asset {0} is still allocated in {1}. Remove it from the allocation (or return it) first.").format(
+				frappe.bold(doc.name),
+				", ".join(get_link_to_form("Asset Allocation", name) for name in allocations),
+			),
+			title=_("Asset Is Allocated"),
+		)

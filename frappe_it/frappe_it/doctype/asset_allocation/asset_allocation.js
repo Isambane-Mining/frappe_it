@@ -2,6 +2,18 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on('Asset Allocation', {
+    setup: function (frm) {
+        // Only submitted, in-service Assets can be allocated (enforced on save too)
+        frm.set_query('asset', 'list_of_allocated_assets', function () {
+            return {
+                filters: {
+                    docstatus: 1,
+                    status: ['not in', ['Scrapped', 'Sold']],
+                },
+            };
+        });
+    },
+
     employee_or_asset: function (frm) {
         const selected_doctype = frm.doc.employee_or_asset;
 
